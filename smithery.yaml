@@ -1,0 +1,25 @@
+name: honeypot-mcp
+description: "AI Red Team + Content Scorer + Deep Research + Verse/UEFN Code Assistant. Four tools: adversarial document analysis with 3 expert personas, content quality scoring, web-grounded research, and Verse code generation/debugging for Fortnite Creative developers."
+tags:
+  - red-team
+  - content-scoring
+  - research
+  - ai-agent
+  - gemini
+  - fortnite
+  - uefn
+  - verse
+icon: "🍯"
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      geminiApiKey:
+        type: string
+        description: "Google Gemini API key (get free at https://aistudio.google.com/apikey)"
+    required:
+      - geminiApiKey
+  commandFunction:
+    name: startServer
+    filePath: smithery_config.js
