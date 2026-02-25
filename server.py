@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
 Honeypot MCP Server
-AI Red Team + Content Scorer + Deep Research — powered by Gemini Flash
+AI Red Team + Content Scorer + Deep Research + Verse/UEFN — powered by Gemini Flash
 Demand validation for bot-to-bot paid services.
+
+Supports both stdio (local) and Streamable HTTP (Smithery) transports.
 """
 import os
+import sys
 import json
 import time
 import asyncio
 import hashlib
+from contextlib import asynccontextmanager
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
@@ -309,9 +313,47 @@ async def _verse_assist(arguments: dict) -> str:
     return f"# Verse {mode_label}\n\n**Task:** {task[:200]}\n\n{result}\n\n---\n*Note: Verse can only be fully compiled inside UEFN. Paste this code into your creative_device script and hit Ctrl+Shift+B to verify.*"
 
 
-async def main():
+async def run_stdio():
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
+
+def run_http(host: str = "0.0.0.0", port: int = 8000):
+    from starlette.applications import Starlette
+    from starlette.routing import Mount
+    from starlette.responses import JSONResponse
+    from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+    import uvicorn
+
+    session_manager = StreamableHTTPSessionManager(
+        app=server,
+        json_response=False,
+        stateless=True,
+    )
+
+    @asynccontextmanager
+    async def lifespan(app):
+        async with session_manager.run():
+            yield
+
+    async def handle_mcp(scope, receive, send):
+        await session_manager.handle_request(scope, receive, send)
+
+    app = Starlette(
+        routes=[
+            Mount("/mcp", app=handle_mcp),
+            Mount("/", app=handle_mcp),
+        ],
+        lifespan=lifespan,
+    )
+
+    uvicorn.run(app, host=host, port=port)
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    if "--http" in sys.argv:
+        port = int(os.environ.get("PORT", "8000"))
+        host = os.environ.get("HOST", "0.0.0.0")
+        run_http(host=host, port=port)
+    else:
+        asyncio.run(run_stdio())
